@@ -71,9 +71,9 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     # Multiply accuracy of each client by number of examples used
     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
-
     # Aggregate and return custom metric (weighted average)
     return {"accuracy": sum(accuracies) / sum(examples)}
+    #return {"accuracy": sum(accuracies) / sum(examples)}
 
 
 # This Functions starts a Server and n:Clients which then connect to the server for federated learning.
@@ -85,6 +85,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
         min_fit_clients=_num_clients,
         min_evaluate_clients=int(_num_clients/2),
         min_available_clients=_num_clients,
+        initial_parameters=fl.common.ndarrays_to_parameters(centralized.get_parameters(centralized.Net())),
         evaluate_metrics_aggregation_fn=weighted_average,  # <-- pass the metric aggregation function
     )
 
@@ -93,7 +94,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
     client_resources = {"num_cpus": 1, "num_gpus": 0.0}
     if centralized.DEVICE.type == "cuda":
         # here we are assigning an entire GPU for each client.
-        client_resources = {"num_cpus": 1, "num_gpus": 1.0}
+        client_resources = {"num_cpus": 1, "num_gpus": 1}
         # Refer to our documentation for more details about Flower Simulations
         # and how to set up these `client_resources`.
 
@@ -109,7 +110,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
 
 if __name__ == '__main__':
     # Set Number of clients here
-    num_clients: int = 20
+    num_clients: int = 32
     # Set Number of training rounds here
     num_rounds: int = 1
     # load train, validation sets and split them for number of clients
