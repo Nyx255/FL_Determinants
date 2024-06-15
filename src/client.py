@@ -3,21 +3,15 @@ from typing import List, Tuple
 
 import flwr as fl
 import torch
+
 from flwr.common import Metrics
 
 import centralized
 from centralized import load_model, train, test, load_datasets
 
-
-def set_parameters(model, parameters):
-    params_dict = zip(model.state_dict().keys(), parameters)
-    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)
-    return model
-
-
 net = load_model()
 train_loaders, val_loaders, test_loader = None, None, None
+torch.manual_seed(0)
 
 
 class FlowerClient(fl.client.NumPyClient):
@@ -39,6 +33,13 @@ class FlowerClient(fl.client.NumPyClient):
         set_parameters(net, parameters)
         loss, accuracy = test(net, self.val_loader)
         return float(loss), len(self.val_loader.dataset), {"accuracy": accuracy}
+
+
+def set_parameters(model, parameters):
+    params_dict = zip(model.state_dict().keys(), parameters)
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    model.load_state_dict(state_dict, strict=True)
+    return model
 
 
 def start_client(train_loader, test_loader) -> None:
@@ -73,7 +74,7 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     examples = [num_examples for num_examples, _ in metrics]
     # Aggregate and return custom metric (weighted average)
     return {"accuracy": sum(accuracies) / sum(examples)}
-    #return {"accuracy": sum(accuracies) / sum(examples)}
+    # return {"accuracy": sum(accuracies) / sum(examples)}
 
 
 # This Functions starts a Server and n:Clients which then connect to the server for federated learning.
@@ -83,7 +84,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
         fraction_fit=1.0,
         fraction_evaluate=1,
         min_fit_clients=_num_clients,
-        min_evaluate_clients=int(_num_clients/2),
+        min_evaluate_clients=int(_num_clients / 2),
         min_available_clients=_num_clients,
         initial_parameters=fl.common.ndarrays_to_parameters(centralized.get_parameters(centralized.Net())),
         evaluate_metrics_aggregation_fn=weighted_average,  # <-- pass the metric aggregation function
@@ -110,7 +111,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
 
 if __name__ == '__main__':
     # Set Number of clients here
-    num_clients: int = 32
+    num_clients: int = 1
     # Set Number of training rounds here
     num_rounds: int = 1
     # load train, validation sets and split them for number of clients

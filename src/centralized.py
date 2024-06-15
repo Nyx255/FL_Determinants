@@ -13,14 +13,18 @@ from torchvision.datasets import CIFAR10
 
 # MNIST Dataset compromised 70.000 28x28 (60.000 training, 10.000 test) handwritten digits.
 
+BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(0)
+torch.use_deterministic_algorithms(True)
+np.random.seed(0)
+# we also need to set an environment variable for deterministic behaviour in all environments that will use the
+# Networks here. we need 'CUBLAS_WORKSPACE_CONFIG:16:8' (slower) or
+# 'CUBLAS_WORKSPACE_CONFIG:4096:8' (needs 24 Mib GPU Memory)
 
 
 def get_device() -> DEVICE:
     return DEVICE
-
-
-BATCH_SIZE = 128
 
 
 class Net(nn.Module):
@@ -167,9 +171,9 @@ def load_datasets(num_clients: int, subset_size: int = -1):
 
 # Only used for testing this
 if __name__ == "__main__":
-    # load_datasets_2(20)
-    net = load_model()
-    trainloader, testloader, num_examples = load_data()
-    train(net, trainloader, 5)
-    loss, accuracy = test(net, testloader)
-    print(f"Loss: {loss:.5f}, Accuracy: {accuracy:.3f}")
+    for i in range(3):
+        net = load_model()
+        trainloader, testloader, num_examples = load_data()
+        train(net, trainloader, 5)
+        loss, accuracy = test(net, testloader)
+        print(f"Loss: {loss:.5f}, Accuracy: {accuracy:.3f}")
