@@ -94,7 +94,8 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
     client_resources = {"num_cpus": 1, "num_gpus": 0.0}
     if centralized.DEVICE.type == "cuda":
         # here we are assigning an entire GPU for each client.
-        client_resources = {"num_cpus": 1, "num_gpus": 1}
+        print("Using GPU for clients.")
+        client_resources = {"num_cpus": 2, "num_gpus": 0.2}
         # Refer to our documentation for more details about Flower Simulations
         # and how to set up these `client_resources`.
 
@@ -110,12 +111,12 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
 
 if __name__ == '__main__':
     # Set Number of clients here
-    num_clients: int = 8
+    num_clients: int = 4
     # Set Number of training rounds here
     num_rounds: int = 8
     # load train, validation sets and split them for number of clients
     # to simulate data distribution amongst real clients
-    subset_size: int = 10000
+    subset_size: int = 2000
     train_loaders, val_loaders, test_loader = centralized.load_randomized_dataset(num_clients, subset_size, seed=42)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available

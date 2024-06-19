@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 
 # MNIST Dataset compromised 70.000 28x28 (60.000 training, 10.000 test) handwritten digits.
+from torchvision.datasets import MNIST
 
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -188,11 +189,11 @@ def load_randomized_dataset(num_clients: int, subset_size: int, seed=None):
     valloaders = []
 
     for i in range(num_clients):
-        train_subset_list = generate_random_integers(num_integers=subset_size, range_end=49999, seed=seed)
+        train_subset_list = generate_random_integers(num_integers=subset_size, range_end=49999, seed=seed + (num_clients * 100) + i)
         train_subset = torch.utils.data.Subset(trainset, train_subset_list)
         trainloaders.append(DataLoader(train_subset, batch_size=BATCH_SIZE))
 
-        val_subset_list = generate_random_integers(num_integers=int(subset_size/5), range_end=9999, seed=seed)
+        val_subset_list = generate_random_integers(num_integers=int(subset_size/5), range_end=9999, seed=seed + (num_clients * 100) + i)
         val_subset = torch.utils.data.Subset(testset, val_subset_list)
         valloaders.append(DataLoader(val_subset, batch_size=BATCH_SIZE))
     testloader = DataLoader(testset, batch_size=BATCH_SIZE)
