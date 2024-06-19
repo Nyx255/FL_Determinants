@@ -26,7 +26,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         set_parameters(net, parameters)
-        train(net, self.train_loader, epochs=1)
+        train(net, self.train_loader, epochs=5)
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
@@ -74,7 +74,6 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     examples = [num_examples for num_examples, _ in metrics]
     # Aggregate and return custom metric (weighted average)
     return {"accuracy": sum(accuracies) / sum(examples)}
-    # return {"accuracy": sum(accuracies) / sum(examples)}
 
 
 # This Functions starts a Server and n:Clients which then connect to the server for federated learning.
@@ -82,7 +81,7 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
     # Create FedAvg strategy
     strategy = fl.server.strategy.FedAvg(
         fraction_fit=1.0,
-        fraction_evaluate=1,
+        fraction_evaluate=0.5,
         min_fit_clients=_num_clients,
         min_evaluate_clients=int(_num_clients / 2),
         min_available_clients=_num_clients,
@@ -111,13 +110,13 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
 
 if __name__ == '__main__':
     # Set Number of clients here
-    num_clients: int = 1
+    num_clients: int = 8
     # Set Number of training rounds here
-    num_rounds: int = 1
+    num_rounds: int = 8
     # load train, validation sets and split them for number of clients
     # to simulate data distribution amongst real clients
-    subset_size: int = 1000
-    train_loaders, val_loaders, test_loader = load_datasets(num_clients, subset_size)
+    subset_size: int = 10000
+    train_loaders, val_loaders, test_loader = centralized.load_randomized_dataset(num_clients, subset_size, seed=42)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_multiple_client_simulation(num_clients, num_rounds)

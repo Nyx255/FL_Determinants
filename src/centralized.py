@@ -1,5 +1,6 @@
 from typing import List, OrderedDict
 
+import random
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,9 +16,13 @@ from torchvision.datasets import CIFAR10
 
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+"""
 torch.manual_seed(0)
 torch.use_deterministic_algorithms(True)
 np.random.seed(0)
+"""
+
+
 # we also need to set an environment variable for deterministic behaviour in all environments that will use the
 # Networks here. we need 'CUBLAS_WORKSPACE_CONFIG:16:8' (slower) or
 # 'CUBLAS_WORKSPACE_CONFIG:4096:8' (needs 24 Mib GPU Memory)
@@ -134,7 +139,7 @@ def load_datasets(num_clients: int, subset_size: int = -1):
             print("num clients: " + str(num_clients) + ", subset size: " + str(subset_size) + ", result: " + str(
                 num_clients * subset_size))
             raise IndexError("(Subset Size * Number of Clients) is too big for train-set splitting")
-        elif subset_size > 10000:
+        elif subset_size / 5 > 10000:
             raise IndexError("Subset Size too big for test-set")
 
     """
@@ -167,13 +172,45 @@ def load_datasets(num_clients: int, subset_size: int = -1):
     return trainloaders, valloaders, testloader
 
 
+def load_randomized_dataset(num_clients: int, subset_size: int, seed=None):
+    if subset_size > 50000:
+        print("subset size is too big! " + str(subset_size) + " > 50.000 !")
+        return
+    """Load CIFAR-10 (training and test set)."""
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+    )
+    trainset = CIFAR10("..", train=True, download=True, transform=transform)
+    testset = CIFAR10("..", train=False, download=True, transform=transform)
+    test_subset_size = subset_size / 5
+
+    trainloaders = []
+    valloaders = []
+
+    for i in range(num_clients):
+        train_subset_list = generate_random_integers(num_integers=subset_size, range_end=49999, seed=seed)
+        train_subset = torch.utils.data.Subset(trainset, train_subset_list)
+        trainloaders.append(DataLoader(train_subset, batch_size=BATCH_SIZE))
+
+        val_subset_list = generate_random_integers(num_integers=int(subset_size/5), range_end=9999, seed=seed)
+        val_subset = torch.utils.data.Subset(testset, val_subset_list)
+        valloaders.append(DataLoader(val_subset, batch_size=BATCH_SIZE))
+    testloader = DataLoader(testset, batch_size=BATCH_SIZE)
+    return trainloaders, valloaders, testloader
+
+
+def generate_random_integers(num_integers=10000, range_start=0, range_end=49999, seed=None):
+    if seed is not None:
+        random.seed(seed)
+    return [random.randint(range_start, range_end) for _ in range(num_integers)]
+
+
 # trainloaders, valloaders, testloader = load_data()
 
 # Only used for testing this
 if __name__ == "__main__":
-    for i in range(3):
-        net = load_model()
-        trainloader, testloader, num_examples = load_data()
-        train(net, trainloader, 5)
-        loss, accuracy = test(net, testloader)
-        print(f"Loss: {loss:.5f}, Accuracy: {accuracy:.3f}")
+    net = load_model()
+    trainloader, testloader, num_examples = load_data()
+    train(net, trainloader, 5)
+    loss, accuracy = test(net, testloader)
+    print(f"Loss: {loss:.5f}, Accuracy: {accuracy:.3f}")
