@@ -1,19 +1,10 @@
-from typing import List, OrderedDict, Tuple
+from typing import List, OrderedDict
 
-import random
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, Dataset
-# CIFAR10 Dataset compromised 60.000 (50.000 training, 10.000 test) 32x32 pixel color photographs with 10 classes
-# training set has 5000 photographs per class and
-# (0: airplane, 1: automobile, 2: bird, 3: car, 4: deer, 5: dog, 6: frog, 7: horse, 8: ship, 9: truck)
-from torchvision.datasets import CIFAR10
-
-# MNIST Dataset compromised 70.000 28x28 (60.000 training, 10.000 test) handwritten digits.
-from torchvision.datasets import MNIST
+from torch.utils.data import DataLoader
 
 from src import datasets
 
@@ -71,7 +62,7 @@ def set_parameters(net, parameters: List[np.ndarray]):
     net.load_state_dict(state_dict, strict=True)
 
 
-def train(net: Net, trainloader: DataLoader, epochs: int) -> None:
+def train(net: nn.Module, trainloader: DataLoader, epochs: int) -> None:
     """Train the network on the training set."""
     if torch.cuda.is_available():
         # print("Current used device for training: " + torch.cuda.get_device_name(0))
@@ -88,13 +79,17 @@ def train(net: Net, trainloader: DataLoader, epochs: int) -> None:
             loss = criterion(net(images), labels)
             loss.backward()
             optimizer.step()
+    return net
 
 
 # Evaluate Model and get loss, accuracy using a test set
-def test(net, testloader) -> (float, float):
+def test(net: nn.Module, testloader: DataLoader) -> (float, float):
     """Validate the network on the entire test set."""
+    if len(testloader.dataset) == 0:
+        raise ValueError("Testloader size is zero!")
     criterion = torch.nn.CrossEntropyLoss()
     correct, total, loss = 0, 0, 0.0
+    net.eval()
     with torch.no_grad():
         for data in testloader:
             images, labels = data[0].to(DEVICE), data[1].to(DEVICE)
@@ -103,6 +98,7 @@ def test(net, testloader) -> (float, float):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+    # loss /= len(testloader.dataset)
     accuracy = correct / total
     return loss, accuracy
 
@@ -115,7 +111,7 @@ def load_model():
 if __name__ == "__main__":
     net = load_model()
     train_set, test_set = datasets.download_cifar_10()
-    train_loaders, val_loaders = datasets.create_loaders(train_set, test_set)
+    train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set)
     epochs = 5
 
     train(net, train_loaders[0], epochs)

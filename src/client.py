@@ -42,6 +42,8 @@ def set_parameters(model, parameters):
     return model
 
 
+# Obsolete?
+"""
 def start_client(train_loader, test_loader) -> None:
     client = FlowerClient(train_loader, test_loader).to_client()
     fl.client.start_client(
@@ -54,6 +56,7 @@ def start_clients(num_clients: int) -> None:
     train_loaders, val_loaders, test_loader = load_datasets(num_clients)
     for i in range(num_clients):
         start_client(train_loaders[i], test_loader)
+"""
 
 
 def client_fn(cid: str):
@@ -85,14 +88,14 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
         min_fit_clients=_num_clients,
         min_evaluate_clients=int(_num_clients / 2),
         min_available_clients=_num_clients,
-        initial_parameters=fl.common.ndarrays_to_parameters(centralized.get_parameters(centralized.Net())),
+        initial_parameters=fl.common.ndarrays_to_parameters(cifar10_net.get_parameters(cifar10_net.Net())),
         evaluate_metrics_aggregation_fn=weighted_average,  # <-- pass the metric aggregation function
     )
 
     # Specify the resources each of your clients need. By default, each
     # client will be allocated 1x CPU and 0x GPUs
     client_resources = {"num_cpus": 1, "num_gpus": 0.0}
-    if centralized.DEVICE.type == "cuda":
+    if cifar10_net.DEVICE.type == "cuda":
         # here we are assigning an entire GPU for each client.
         print("Using GPU for clients.")
         client_resources = {"num_cpus": 2, "num_gpus": 0.2}

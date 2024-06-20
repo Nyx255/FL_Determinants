@@ -21,13 +21,7 @@ np.random.seed(0)
 
 
 def download_mnist() -> Tuple[Dataset, Dataset]:
-    """Downloads (if necessary) and returns the MNIST dataset.
-
-    Returns
-    -------
-    Tuple[MNIST, MNIST]
-        The dataset for training and the dataset for testing MNIST.
-    """
+    """Load MNIST (training and test set)."""
     transform = transforms.Compose(
         # mean value: 0.1307, standard deviation: 0.3081 of MNIST set
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
@@ -63,14 +57,14 @@ def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int
 
         if shuffle:
             train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
-                                                       int((i + 1) * train_subset_size) - 1, 42)
+                                                       int((i + 1) * train_subset_size), 42)
         else:
             train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
         train_loaders.append(train_subset_loader)
 
         if shuffle:
             val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
-                                                     int((i + 1) * val_subset_size) - 1, 42)
+                                                     int((i + 1) * val_subset_size), 42)
         else:
             val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
         val_loaders.append(val_subset_loader)
