@@ -112,17 +112,28 @@ def start_multiple_client_simulation(_num_clients: int, _num_rounds: int):
     )
 
 
-if __name__ == '__main__':
-    # Set Number of clients here
-    num_clients: int = 4
-    # Set Number of training rounds here
-    num_rounds: int = 4
-    # load train, validation sets and split them for number of clients
-    # to simulate data distribution amongst real clients
-    subset_size: int = 10000
+def start_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int):
     train_set, test_set = datasets.download_cifar_10()
+    global train_loaders, val_loaders, test_loader
     train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
                                                                       subset_size, num_splits=num_clients)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_multiple_client_simulation(num_clients, num_rounds)
+
+
+def start_mnist_sim(num_clients: int, num_rounds: int, subset_size: int):
+    train_set, test_set = datasets.download_mnist()
+    global train_loaders, val_loaders, test_loader
+    train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
+                                                                      subset_size, num_splits=num_clients)
+    # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
+    # only load more clients if available
+    start_multiple_client_simulation(num_clients, num_rounds)
+
+
+if __name__ == '__main__':
+    clients: int = 4
+    rounds: int = 4
+    set_per_client: int = 10000
+    start_cifar_10_sim(clients, rounds, set_per_client)
