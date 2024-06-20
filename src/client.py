@@ -24,22 +24,21 @@ class FlowerClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
+    def set_parameters(model, parameters):
+        params_dict = zip(model.state_dict().keys(), parameters)
+        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        model.load_state_dict(state_dict, strict=True)
+        return model
+
     def fit(self, parameters, config):
-        set_parameters(net, parameters)
+        self.set_parameters(net, parameters)
         train(net, self.train_loader, epochs=5)
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
-        set_parameters(net, parameters)
+        self.set_parameters(net, parameters)
         loss, accuracy = test(net, self.val_loader)
         return float(loss), len(self.val_loader.dataset), {"accuracy": accuracy}
-
-
-def set_parameters(model, parameters):
-    params_dict = zip(model.state_dict().keys(), parameters)
-    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)
-    return model
 
 
 def start_client(train_loader, test_loader) -> None:
