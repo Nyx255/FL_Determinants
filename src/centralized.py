@@ -15,7 +15,7 @@ from torchvision.datasets import CIFAR10
 # MNIST Dataset compromised 70.000 28x28 (60.000 training, 10.000 test) handwritten digits.
 from torchvision.datasets import MNIST
 
-from src import datasets
+from src import cifar10_net
 
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
