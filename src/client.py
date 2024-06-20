@@ -6,8 +6,8 @@ import torch
 
 from flwr.common import Metrics
 
-import centralized
-from centralized import load_model, train, test, load_datasets
+from src import datasets, centralized
+from src.centralized import load_model, train, test
 
 net = load_model()
 train_loaders, val_loaders, test_loader = None, None, None
@@ -24,21 +24,22 @@ class FlowerClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
-    def set_parameters(model, parameters):
-        params_dict = zip(model.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        model.load_state_dict(state_dict, strict=True)
-        return model
-
     def fit(self, parameters, config):
-        self.set_parameters(net, parameters)
+        set_parameters(net, parameters)
         train(net, self.train_loader, epochs=5)
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
-        self.set_parameters(net, parameters)
+        set_parameters(net, parameters)
         loss, accuracy = test(net, self.val_loader)
         return float(loss), len(self.val_loader.dataset), {"accuracy": accuracy}
+
+
+def set_parameters(model, parameters):
+    params_dict = zip(model.state_dict().keys(), parameters)
+    state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+    model.load_state_dict(state_dict, strict=True)
+    return model
 
 
 def start_client(train_loader, test_loader) -> None:
@@ -112,15 +113,13 @@ if __name__ == '__main__':
     # Set Number of clients here
     num_clients: int = 4
     # Set Number of training rounds here
-    num_rounds: int = 8
+    num_rounds: int = 4
     # load train, validation sets and split them for number of clients
     # to simulate data distribution amongst real clients
-    subset_size: int = 2000
-    train_loaders, val_loaders, test_loader = centralized.load_randomized_dataset(num_clients, subset_size, seed=42)
+    subset_size: int = 10000
+    train_set, test_set = datasets.download_cifar_10()
+    train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
+                                                                      subset_size, num_splits=num_clients)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_multiple_client_simulation(num_clients, num_rounds)
-    """
-    train_loader, test_loader, num_examples = load_data()
-    start_client(train_loader, test_loader)
-    """

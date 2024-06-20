@@ -20,7 +20,7 @@ torch.use_deterministic_algorithms(True)
 np.random.seed(0)
 
 
-def _download_mnist() -> Tuple[Dataset, Dataset]:
+def download_mnist() -> Tuple[Dataset, Dataset]:
     """Downloads (if necessary) and returns the MNIST dataset.
 
     Returns
@@ -37,7 +37,7 @@ def _download_mnist() -> Tuple[Dataset, Dataset]:
     return trainset, testset
 
 
-def _download_cifar_10() -> Tuple[Dataset, Dataset]:
+def download_cifar_10() -> Tuple[Dataset, Dataset]:
     """Load CIFAR-10 (training and test set)."""
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
@@ -47,13 +47,7 @@ def _download_cifar_10() -> Tuple[Dataset, Dataset]:
     return trainset, testset
 
 
-def load_data(train_set, test_set):
-    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-    test_loader = DataLoader(test_set, batch_size=BATCH_SIZE)
-    return train_loader, test_loader
-
-
-def test(train_set, test_set, subset_size: int = None, num_splits: int = 1):
+def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False):
     train_loaders = []
     val_loaders = []
     if subset_size is None:
@@ -66,54 +60,23 @@ def test(train_set, test_set, subset_size: int = None, num_splits: int = 1):
         val_subset_size = int(subset_size * len(test_set) / len(train_set))
 
     for i in range(num_splits):
-        pass
 
+        if shuffle:
+            train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
+                                                       int((i + 1) * train_subset_size) - 1, 42)
+        else:
+            train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
+        train_loaders.append(train_subset_loader)
 
-def load_datasets(num_clients: int, subset_size: int = -1):
-    """Load CIFAR-10 (training and test set)."""
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    trainset = CIFAR10("..", train=True, download=True, transform=transform)
-    testset = CIFAR10("..", train=False, download=True, transform=transform)
+        if shuffle:
+            val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
+                                                     int((i + 1) * val_subset_size) - 1, 42)
+        else:
+            val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
+        val_loaders.append(val_subset_loader)
 
-    trainloaders = []
-    valloaders = []
-
-    if subset_size != -1:
-        if num_clients * subset_size > 50000:
-            print("num clients: " + str(num_clients) + ", subset size: " + str(subset_size) + ", result: " + str(
-                num_clients * subset_size))
-            raise IndexError("(Subset Size * Number of Clients) is too big for train-set splitting")
-        elif subset_size / 5 > 10000:
-            raise IndexError("Subset Size too big for test-set")
-
-    """
-    if len(trainset) % num_clients != 0 or len(testset) % num_clients != 0:
-        print("Train or Test set not divisible by num clients! This will omit non divisible training data")
-    """
-    if subset_size == -1:
-        # splitting train/test-sets into number of clients
-        train_subset_size = int(len(trainset) / num_clients)
-        val_subset_size = int(len(testset) / num_clients)
-        testloader = DataLoader(testset, batch_size=BATCH_SIZE)
-    else:
-        # splitting train/test-sets into number of clients with even sized data
-        train_subset_size = subset_size
-        val_subset_size = int(subset_size * len(testset) / len(trainset))
-
-        test_subset_list = list(range(0, subset_size))
-        test_subset = torch.utils.data.Subset(trainset, test_subset_list)
-        testloader = DataLoader(test_subset, batch_size=BATCH_SIZE)
-    print("train-subset size: " + str(train_subset_size))
-    print("validation-subset size: " + str(val_subset_size))
-    for i in range(num_clients):
-        train_subset_loader = create_loader(trainset, int(i * train_subset_size), int((i + 1) * train_subset_size))
-        trainloaders.append(train_subset_loader)
-
-        val_subset_loader = create_loader(testset, int(i * val_subset_size), int((i + 1) * val_subset_size))
-        valloaders.append(val_subset_loader)
-    return trainloaders, valloaders, testloader
+    test_loader = create_loader(test_set)
+    return train_loaders, val_loaders, test_loader
 
 
 def create_loader(dataset, start: int = 0, end: int = None):
@@ -135,36 +98,15 @@ def create_random_loader(dataset, set_size: int, range_start: int = 0, range_end
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
-def load_randomized_dataset(num_clients: int, subset_size: int, seed=None):
-    if subset_size > 50000:
-        print("subset size is too big! " + str(subset_size) + " > 50.000 !")
-        return
-    """Load CIFAR-10 (training and test set)."""
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-    )
-    trainset = CIFAR10("..", train=True, download=True, transform=transform)
-    testset = CIFAR10("..", train=False, download=True, transform=transform)
-    test_subset_size = subset_size / 5
-
-    trainloaders = []
-    valloaders = []
-
-    for i in range(num_clients):
-        train_subset_list = generate_random_integers(num_integers=subset_size, range_end=49999,
-                                                     seed=seed + (num_clients * 100) + i)
-        train_subset = torch.utils.data.Subset(trainset, train_subset_list)
-        trainloaders.append(DataLoader(train_subset, batch_size=BATCH_SIZE))
-
-        val_subset_list = generate_random_integers(num_integers=int(subset_size / 5), range_end=9999,
-                                                   seed=seed + (num_clients * 100) + i)
-        val_subset = torch.utils.data.Subset(testset, val_subset_list)
-        valloaders.append(DataLoader(val_subset, batch_size=BATCH_SIZE))
-    testloader = DataLoader(testset, batch_size=BATCH_SIZE)
-    return trainloaders, valloaders, testloader
-
-
 def generate_random_integers(num_integers: int, range_start: int, range_end: int, seed=None):
+    """
+    Generates random list of integers.
+    :param num_integers: size of list we will generate
+    :param range_start: start value for range
+    :param range_end: end value for range
+    :param seed:
+    :return: List of random integers in range
+    """
     if seed is not None:
         random.seed(seed)
     return [random.randint(range_start, range_end) for _ in range(num_integers)]
