@@ -6,8 +6,8 @@ import torch
 
 from flwr.common import Metrics
 
-from src import datasets, centralized
-from src.centralized import load_model, train, test
+from src import datasets, cifar10_net
+from src.cifar10_net import load_model, train, test
 
 net = load_model()
 train_loaders, val_loaders, test_loader = None, None, None
