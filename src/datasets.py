@@ -92,6 +92,21 @@ def create_random_loader(dataset, set_size: int, range_start: int = 0, range_end
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
+def create_biased_loader(dataset, set_size: int, class_bias: int, seed: int = None):
+    """
+    Generates random dataset of specified size using a class bias and a seed.
+    The bias forces the dataset to filter the classes.
+    :param dataset: current dataset
+    :param set_size: size of new dataset
+    :param class_bias: class we want our new set to have
+    :param seed: seed used for randomization
+    :return: Dataloader
+    """
+    idx = (dataset.targets == class_bias)
+    dataset.targets = [dataset.targets[index] for index in idx]
+    return create_random_loader(dataset,range_end=set_size, seed=seed)
+
+
 def generate_random_integers(num_integers: int, range_start: int, range_end: int, seed=None):
     """
     Generates random list of integers.

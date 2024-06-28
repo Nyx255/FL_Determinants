@@ -181,7 +181,6 @@ if __name__ == '__main__':
     clients: int = 2
     rounds: int = 8
 
-    # dont forget to change mnist function calls in fit and aveluate functions!
     # set_per_client: int = 10000
     # prepare_cifar_10_sim(clients, rounds, set_per_client)
 
