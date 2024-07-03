@@ -4,7 +4,7 @@ import random
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 # CIFAR10 Dataset compromised 60.000 (50.000 training, 10.000 test) 32x32 pixel color photographs with 10 classes
 # training set has 5000 photographs per class and
 # (0: airplane, 1: automobile, 2: bird, 3: car, 4: deer, 5: dog, 6: frog, 7: horse, 8: ship, 9: truck)
@@ -41,7 +41,8 @@ def download_cifar_10() -> Tuple[Dataset, Dataset]:
     return trainset, testset
 
 
-def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False):
+def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False,
+                   biased: bool = False):
     train_loaders = []
     val_loaders = []
     if subset_size is None:
@@ -54,19 +55,23 @@ def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int
         val_subset_size = int(subset_size * len(test_set) / len(train_set))
 
     for i in range(num_splits):
-
-        if shuffle:
+        if biased:
+            train_subset_loader = create_biased_loader(train_set, train_subset_size, seed=42)
+        elif shuffle:
             train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
                                                        int((i + 1) * train_subset_size), 42)
         else:
             train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
         train_loaders.append(train_subset_loader)
 
-        if shuffle:
+        if biased:
+            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=42)
+        elif shuffle:
             val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
                                                      int((i + 1) * val_subset_size), 42)
         else:
             val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
+
         val_loaders.append(val_subset_loader)
 
     test_loader = create_loader(test_set)
@@ -77,7 +82,7 @@ def create_loader(dataset, start: int = 0, end: int = None):
     if end is None:
         end = len(dataset)
     sub_set_list = list(range(start, end))
-    sub_set = torch.utils.data.Subset(dataset, sub_set_list)
+    sub_set = Subset(dataset, sub_set_list)
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
@@ -88,23 +93,43 @@ def create_random_loader(dataset, set_size: int, range_start: int = 0, range_end
     else:
         sub_set_list = generate_random_integers(num_integers=set_size, range_start=range_start,
                                                 range_end=range_end, seed=seed)
-    sub_set = torch.utils.data.Subset(dataset, sub_set_list)
+    sub_set = Subset(dataset, sub_set_list)
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
-def create_biased_loader(dataset, set_size: int, class_bias: int, seed: int = None):
+def create_biased_loader(dataset, set_size: int, bias_ratio: float = 0.5, seed: int = None):
     """
-    Generates random dataset of specified size using a class bias and a seed.
-    The bias forces the dataset to filter the classes.
-    :param dataset: current dataset
-    :param set_size: size of new dataset
-    :param class_bias: class we want our new set to have
+    Generates a DataLoader with a specified size, biased towards a random class.
+    :param dataset: PyTorch dataset
+    :param set_size: size of the new dataset
+    :param bias_ratio: ratio of samples that should belong to the biased class
     :param seed: seed used for randomization
-    :return: Dataloader
+    :return: DataLoader
     """
-    idx = (dataset.targets == class_bias)
-    dataset.targets = [dataset.targets[index] for index in idx]
-    return create_random_loader(dataset,range_end=set_size, seed=seed)
+    if seed is not None:
+        random.seed(seed)
+    random_class = random.choice(list(set(dataset.targets)))
+    # print("Selected bias class: " + str(random_class))
+    # split dataset.targets between matching classes and other classes
+    class_indices = [i for i, target in enumerate(dataset.targets) if target == random_class]
+    other_indices = [i for i, target in enumerate(dataset.targets) if target != random_class]
+
+    # shuffle lists
+    random.shuffle(class_indices)
+    random.shuffle(other_indices)
+
+    # choose amount of biased classes and fill rest with random classes
+    num_biased_samples = int(set_size * bias_ratio)
+    num_other_samples = set_size - num_biased_samples
+
+    selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
+    biased_subset = Subset(dataset, selected_indices)
+
+    return DataLoader(biased_subset, batch_size=len(biased_subset), shuffle=True)
+
+
+# Example usage (assuming you have a dataset object)
+# loader = create_biased_loader(my_dataset, set_size=100, bias_ratio=0.5, seed=42)
 
 
 def generate_random_integers(num_integers: int, range_start: int, range_end: int, seed=None):

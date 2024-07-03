@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from enum import Enum
 from typing import List, Tuple
 
 import flwr as fl
@@ -13,6 +14,14 @@ train_loaders, val_loaders, test_loader = None, None, None
 torch.manual_seed(0)
 
 
+class DatasetEnum(Enum):
+    MNIST = 0
+    CIFAR10 = 1
+
+
+current_sim_dataset: DatasetEnum = DatasetEnum.MNIST
+
+
 class FlowerClient(fl.client.NumPyClient):
 
     def __init__(self, net, train_loader, val_loader):
@@ -25,12 +34,24 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         set_parameters(net, parameters)
-        mnist_net.train(net, self.train_loader, epochs=5)
+
+        match current_sim_dataset:
+            case DatasetEnum.MNIST:
+                mnist_net.train(net, self.train_loader, epochs=5)
+            case DatasetEnum.CIFAR10:
+                cifar10_net.train(net, self.train_loader, epochs=5)
+
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
-        loss, accuracy = mnist_net.test(net, self.val_loader)
+
+        match current_sim_dataset:
+            case DatasetEnum.MNIST:
+                loss, accuracy = mnist_net.test(net, self.val_loader)
+            case DatasetEnum.CIFAR10:
+                loss, accuracy = cifar10_net.test(net, self.val_loader)
+
         return float(loss), len(self.val_loader.dataset), {"accuracy": accuracy}
 
 
@@ -143,15 +164,16 @@ def start_mnist_10_sim(_num_clients: int, _num_rounds: int):
     )
 
 
-def prepare_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int, reverse: bool = False):
-
+def prepare_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int,
+                         reverse: bool = False, shuffle: bool = False, biased: bool = False):
     global net
     net = cifar10_net.load_model()
 
     train_set, test_set = datasets.download_cifar_10()
     global train_loaders, val_loaders, test_loader
     train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
-                                                                      subset_size, num_splits=num_clients)
+                                                                      subset_size, num_splits=num_clients,
+                                                                      shuffle=shuffle, biased=biased)
     if reverse:
         train_loaders = list(reversed(train_loaders))
         val_loaders = list(reversed(val_loaders))
@@ -160,15 +182,16 @@ def prepare_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int, re
     start_cifar_10_sim(num_clients, num_rounds)
 
 
-def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int, reverse: bool = False):
-
+def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int,
+                      reverse: bool = False, shuffle: bool = False, biased: bool = False):
     global net
     net = mnist_net.load_model()
 
     train_set, test_set = datasets.download_mnist()
     global train_loaders, val_loaders, test_loader
     train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
-                                                                      subset_size, num_splits=num_clients)
+                                                                      subset_size, num_splits=num_clients,
+                                                                      shuffle=shuffle, biased=biased)
     if reverse:
         train_loaders = list(reversed(train_loaders))
         val_loaders = list(reversed(val_loaders))
@@ -177,12 +200,18 @@ def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int, rever
     start_mnist_10_sim(num_clients, num_rounds)
 
 
+def simulate(sim_dataset: DatasetEnum):
+    global current_sim_dataset
+    current_sim_dataset = sim_dataset
+    clients: int = 16
+    rounds: int = 4
+
+    match current_sim_dataset:
+        case DatasetEnum.MNIST:
+            prepare_mnist_sim(clients, rounds, subset_size=1000, biased=True)
+        case DatasetEnum.CIFAR10:
+            prepare_cifar_10_sim(clients, rounds, subset_size=10000)
+
+
 if __name__ == '__main__':
-    clients: int = 2
-    rounds: int = 8
-
-    # set_per_client: int = 10000
-    # prepare_cifar_10_sim(clients, rounds, set_per_client)
-
-    set_per_client: int = 1000
-    prepare_mnist_sim(clients, rounds, set_per_client, reverse=True)
+    simulate(DatasetEnum.MNIST)
