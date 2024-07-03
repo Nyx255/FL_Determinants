@@ -1,3 +1,4 @@
+import time
 from collections import OrderedDict
 from enum import Enum
 from typing import List, Tuple
@@ -12,6 +13,9 @@ from src import datasets, cifar10_net, mnist_net
 net = None
 train_loaders, val_loaders, test_loader = None, None, None
 torch.manual_seed(0)
+
+client_latency: float = 0.1  # in Seconds
+client_package_loss_percentage: float = 10.0  # in percent
 
 
 class DatasetEnum(Enum):
@@ -30,10 +34,13 @@ class FlowerClient(fl.client.NumPyClient):
         self.val_loader = val_loader
 
     def get_parameters(self, config):
+        time.sleep(client_latency)
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
     def fit(self, parameters, config):
         set_parameters(net, parameters)
+
+        time.sleep(client_latency)
 
         match current_sim_dataset:
             case DatasetEnum.MNIST:
@@ -45,6 +52,8 @@ class FlowerClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         set_parameters(net, parameters)
+
+        time.sleep(client_latency)
 
         match current_sim_dataset:
             case DatasetEnum.MNIST:
@@ -203,6 +212,10 @@ def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int,
 def simulate(sim_dataset: DatasetEnum):
     global current_sim_dataset
     current_sim_dataset = sim_dataset
+    # Add Latency to all messages send from the client
+    global client_latency
+    client_latency = 0.2
+
     clients: int = 16
     rounds: int = 4
 
