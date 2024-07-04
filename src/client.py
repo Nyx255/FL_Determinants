@@ -14,8 +14,8 @@ net = None
 train_loaders, val_loaders, test_loader = None, None, None
 torch.manual_seed(0)
 
-client_latency: float = 0.1  # in Seconds
-client_package_loss_percentage: float = 10.0  # in percent
+client_latency: float = 0  # in Seconds
+client_package_loss_percentage: float = 0  # in percent
 
 
 class DatasetEnum(Enum):
@@ -34,13 +34,16 @@ class FlowerClient(fl.client.NumPyClient):
         self.val_loader = val_loader
 
     def get_parameters(self, config):
-        time.sleep(client_latency)
+
+        simulate_latency(client_latency)
+
         return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
     def fit(self, parameters, config):
-        set_parameters(net, parameters)
 
-        time.sleep(client_latency)
+        simulate_latency(client_latency)
+
+        set_parameters(net, parameters)
 
         match current_sim_dataset:
             case DatasetEnum.MNIST:
@@ -51,9 +54,10 @@ class FlowerClient(fl.client.NumPyClient):
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
     def evaluate(self, parameters, config):
-        set_parameters(net, parameters)
 
-        time.sleep(client_latency)
+        simulate_latency(client_latency)
+
+        set_parameters(net, parameters)
 
         match current_sim_dataset:
             case DatasetEnum.MNIST:
@@ -209,15 +213,20 @@ def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int,
     start_mnist_10_sim(num_clients, num_rounds)
 
 
-def simulate(sim_dataset: DatasetEnum):
+def simulate_latency(latency_ms: float):
+    if latency_ms == 0:
+        return
+    #print("Simulating latency for: " + str(latency_ms / 1000) + " seconds.")
+    time.sleep(latency_ms / 1000)
+
+
+def simulate(sim_dataset: DatasetEnum, latency: float = 0, clients: int = 1, rounds: int = 1):
     global current_sim_dataset
     current_sim_dataset = sim_dataset
     # Add Latency to all messages send from the client
     global client_latency
-    client_latency = 0.2
-
-    clients: int = 16
-    rounds: int = 4
+    # client latency in ms
+    client_latency = latency
 
     match current_sim_dataset:
         case DatasetEnum.MNIST:
@@ -227,4 +236,4 @@ def simulate(sim_dataset: DatasetEnum):
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST)
+    simulate(DatasetEnum.MNIST, rounds=8, clients=16, latency=0)
