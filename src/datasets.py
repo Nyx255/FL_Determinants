@@ -56,7 +56,7 @@ def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int
 
     for i in range(num_splits):
         if biased:
-            train_subset_loader = create_biased_loader(train_set, train_subset_size, seed=42)
+            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=1, seed=42)
         elif shuffle:
             train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
                                                        int((i + 1) * train_subset_size), 42)
@@ -109,7 +109,7 @@ def create_biased_loader(dataset, set_size: int, bias_ratio: float = 0.5, seed: 
     if seed is not None:
         random.seed(seed)
     random_class = random.choice(list(set(dataset.targets)))
-    # print("Selected bias class: " + str(random_class))
+    print("Selected bias class: " + str(random_class))
     # split dataset.targets between matching classes and other classes
     class_indices = [i for i, target in enumerate(dataset.targets) if target == random_class]
     other_indices = [i for i, target in enumerate(dataset.targets) if target != random_class]

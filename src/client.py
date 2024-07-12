@@ -9,13 +9,14 @@ import torch
 from flwr.common import Metrics
 
 from src import datasets, cifar10_net, mnist_net
+from src.CostumFedAVG import FedCustomPacketLoss
 
 net = None
 train_loaders, val_loaders, test_loader = None, None, None
 torch.manual_seed(0)
 
 client_latency: float = 0  # in Seconds
-client_package_loss_percentage: float = 0  # in percent
+client_dropout_rate: float = 0  # in percent
 
 
 class DatasetEnum(Enum):
@@ -75,23 +76,6 @@ def set_parameters(model, parameters):
     return model
 
 
-# Obsolete?
-"""
-def start_client(train_loader, test_loader) -> None:
-    client = FlowerClient(train_loader, test_loader).to_client()
-    fl.client.start_client(
-        server_address="127.0.0.1:8080",
-        client=client,
-    )
-
-
-def start_clients(num_clients: int) -> None:
-    train_loaders, val_loaders, test_loader = load_datasets(num_clients)
-    for i in range(num_clients):
-        start_client(train_loaders[i], test_loader)
-"""
-
-
 def client_fn(cid: str):
     """Create a Flower client representing a single organization."""
     # Note: each client gets a different train_loader/val_loader, so each client
@@ -114,7 +98,8 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
 # This Functions starts a Server and n:Clients which then connect to the server for federated learning.
 def start_cifar_10_sim(_num_clients: int, _num_rounds: int):
     # Create FedAvg strategy
-    strategy = fl.server.strategy.FedAvg(
+    strategy = FedCustomPacketLoss(
+        fraction_drop=client_dropout_rate,
         fraction_fit=1.0,
         fraction_evaluate=0.5,
         min_fit_clients=_num_clients,
@@ -147,7 +132,8 @@ def start_cifar_10_sim(_num_clients: int, _num_rounds: int):
 # This Functions starts a Server and n:Clients which then connect to the server for federated learning.
 def start_mnist_10_sim(_num_clients: int, _num_rounds: int):
     # Create FedAvg strategy
-    strategy = fl.server.strategy.FedAvg(
+    strategy = FedCustomPacketLoss(
+        fraction_drop=client_dropout_rate,
         fraction_fit=1.0,
         fraction_evaluate=0.5,
         min_fit_clients=_num_clients,
@@ -216,11 +202,11 @@ def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int,
 def simulate_latency(latency_ms: float):
     if latency_ms == 0:
         return
-    #print("Simulating latency for: " + str(latency_ms / 1000) + " seconds.")
+    # print("Simulating latency for: " + str(latency_ms / 1000) + " seconds.")
     time.sleep(latency_ms / 1000)
 
 
-def simulate(sim_dataset: DatasetEnum, latency: float = 0, clients: int = 1, rounds: int = 1):
+def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency: float = 0, dropout_rate: float = 0.1):
     global current_sim_dataset
     current_sim_dataset = sim_dataset
     # Add Latency to all messages send from the client
@@ -228,12 +214,16 @@ def simulate(sim_dataset: DatasetEnum, latency: float = 0, clients: int = 1, rou
     # client latency in ms
     client_latency = latency
 
+    global client_dropout_rate
+    # client latency in ms
+    client_dropout_rate = dropout_rate
+
     match current_sim_dataset:
         case DatasetEnum.MNIST:
             prepare_mnist_sim(clients, rounds, subset_size=1000, biased=True)
         case DatasetEnum.CIFAR10:
-            prepare_cifar_10_sim(clients, rounds, subset_size=10000)
+            prepare_cifar_10_sim(clients, rounds, subset_size=5000)
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, rounds=8, clients=16, latency=0)
+    simulate(DatasetEnum.MNIST, rounds=8, clients=16, dropout_rate=0)
