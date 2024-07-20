@@ -1,3 +1,4 @@
+import math
 from typing import List, OrderedDict, Tuple
 
 import random
@@ -13,11 +14,13 @@ from torchvision.datasets import CIFAR10
 # MNIST Dataset compromised 70.000 28x28 (60.000 training, 10.000 test) handwritten digits.
 from torchvision.datasets import MNIST
 
+SEED: int = 42
+
 BATCH_SIZE = 128
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-torch.manual_seed(0)
+torch.manual_seed(SEED)
 torch.use_deterministic_algorithms(True)
-np.random.seed(0)
+np.random.seed(SEED)
 
 
 def download_mnist() -> Tuple[Dataset, Dataset]:
@@ -56,19 +59,56 @@ def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int
 
     for i in range(num_splits):
         if biased:
-            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=1, seed=42)
+            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=0.5, seed=SEED)
         elif shuffle:
             train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
-                                                       int((i + 1) * train_subset_size), 42)
+                                                       int((i + 1) * train_subset_size), SEED)
         else:
             train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
         train_loaders.append(train_subset_loader)
 
         if biased:
-            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=42)
+            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=SEED)
         elif shuffle:
             val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
-                                                     int((i + 1) * val_subset_size), 42)
+                                                     int((i + 1) * val_subset_size), SEED)
+        else:
+            val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
+
+        val_loaders.append(val_subset_loader)
+
+    test_loader = create_loader(test_set)
+    return train_loaders, val_loaders, test_loader
+
+
+def create_loaders_2(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False,
+                     biased: bool = False):
+    train_loaders = []
+    val_loaders = []
+    if subset_size is None:
+        # splitting train/test-sets into number of clients
+        train_subset_size = int(len(train_set) / num_splits)
+        val_subset_size = int(len(test_set) / num_splits)
+    else:
+        # splitting train/test-sets into number of clients with even sized data
+        train_subset_size = subset_size
+        val_subset_size = int(subset_size * len(test_set) / len(train_set))
+
+    for i in range(num_splits):
+        if biased:
+            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=0.5, seed=SEED)
+        elif shuffle:
+            train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
+                                                       int((i + 1) * train_subset_size), SEED)
+        else:
+            train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
+        train_loaders.append(train_subset_loader)
+
+        if biased:
+            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=SEED)
+        elif shuffle:
+            val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
+                                                     int((i + 1) * val_subset_size), SEED)
         else:
             val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
 
@@ -84,6 +124,65 @@ def create_loader(dataset, start: int = 0, end: int = None):
     sub_set_list = list(range(start, end))
     sub_set = Subset(dataset, sub_set_list)
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
+
+
+def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: int = 1,
+                   bias_ratio: float = 0.0, shuffle: bool = False):
+    # Guards
+    if set_ration < 0.0 or set_ration > 1.0:
+        print("Set Ratio cant be bigger then 1.0 or smaller then 0.0! Exiting...")
+        raise SystemExit
+
+    if bias_ratio < 0.0 or bias_ratio > 1.0:
+        print("Bias Ratio cant be bigger then 1.0 or smaller then 0.0! Exiting...")
+        raise SystemExit
+
+    train_subset_size: int = int(math.floor(len(train_set) * set_ration))
+    print("Create train subset Size of: " + str(train_subset_size) + " set of Size: " + str(len(train_set)))
+    if train_subset_size * subset_count > 1:
+        print("Subset count is too big for Dataset with current subset ratio! ")
+        raise SystemExit
+
+    test_subset_size: int = int(math.floor(len(test_set) * set_ration))
+    print("Create test subset Size of: " + str(test_subset_size) + " set of Size: " + str(len(test_set)))
+    if test_subset_size * subset_count > 1:
+        print("Subset count is too big for Dataset with current subset ratio! ")
+        raise SystemExit
+    # Guards end
+
+    classes: list = list(set(train_set.targets))
+    train_subsets: list[Subset] = []
+    test_subsets: list[Subset] = []
+
+    for i in range(0, subset_count):
+        # select random class as bias for train and test set
+        random_class = random.choice(classes)
+
+        train_subset = create_biased_subset(train_set, train_subset_size, random_class, bias_ratio)
+        train_subsets.append(train_subset)
+
+        test_subset = create_biased_subset(test_set, test_subset_size, random_class, bias_ratio)
+        test_subsets.append(test_subset)
+
+    return train_subsets, test_subsets
+
+
+def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: float = 0.5):
+    # split dataset.targets between matching classes and other classes
+    class_indices = [i for i, target in enumerate(set.targets) if target == class_bias]
+    other_indices = [i for i, target in enumerate(set.targets) if target != class_bias]
+
+    # shuffle lists
+    random.shuffle(class_indices)
+    random.shuffle(other_indices)
+
+    # choose amount of biased classes and fill rest with random classes
+    num_biased_samples = int(subset_size * bias_ratio)
+    num_other_samples = subset_size - num_biased_samples
+
+    selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
+    biased_subset = Subset(set, selected_indices)
+    return biased_subset
 
 
 def create_random_loader(dataset, set_size: int, range_start: int = 0, range_end: int = None, seed: int = None):

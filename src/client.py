@@ -206,7 +206,7 @@ def simulate_latency(latency_ms: float):
     time.sleep(latency_ms / 1000)
 
 
-def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency: float = 0, dropout_rate: float = 0.1):
+def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency: float = 0, dropout_rate: float = 0):
     global current_sim_dataset
     current_sim_dataset = sim_dataset
     # Add Latency to all messages send from the client
@@ -226,4 +226,4 @@ def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, rounds=8, clients=16, dropout_rate=0)
+    simulate(DatasetEnum.MNIST, rounds=8, clients=16)
