@@ -173,27 +173,27 @@ def prepare_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int,
     train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
                                                                       subset_size, num_splits=num_clients,
                                                                       shuffle=shuffle, biased=biased)
-    if reverse:
-        train_loaders = list(reversed(train_loaders))
-        val_loaders = list(reversed(val_loaders))
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_cifar_10_sim(num_clients, num_rounds)
 
 
-def prepare_mnist_sim(num_clients: int, num_rounds: int, subset_size: int,
-                      reverse: bool = False, shuffle: bool = False, biased: bool = False):
+def prepare_mnist_sim(num_clients: int, num_rounds: int, set_size: int, bias_ratio: float = 0.0):
     global net
     net = mnist_net.load_model()
 
     train_set, test_set = datasets.download_mnist()
     global train_loaders, val_loaders, test_loader
+    """
     train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
                                                                       subset_size, num_splits=num_clients,
                                                                       shuffle=shuffle, biased=biased)
-    if reverse:
-        train_loaders = list(reversed(train_loaders))
-        val_loaders = list(reversed(val_loaders))
+    """
+    # mnist train set has size of 60.000
+    # mnist test set has size of 10.000
+    set_ratio: float = set_size / 60000
+    train_loaders, val_loaders, test_loader = datasets.create_loaders_3(train_set, test_set,
+                                                                        set_ratio, num_clients, bias_ratio)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_mnist_10_sim(num_clients, num_rounds)
@@ -206,7 +206,8 @@ def simulate_latency(latency_ms: float):
     time.sleep(latency_ms / 1000)
 
 
-def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency: float = 0, dropout_rate: float = 0):
+def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: int,
+             bias_ratio: float = 0.0, latency: float = 0, dropout_rate: float = 0):
     global current_sim_dataset
     current_sim_dataset = sim_dataset
     # Add Latency to all messages send from the client
@@ -220,10 +221,10 @@ def simulate(sim_dataset: DatasetEnum,clients: int = 1, rounds: int = 1, latency
 
     match current_sim_dataset:
         case DatasetEnum.MNIST:
-            prepare_mnist_sim(clients, rounds, subset_size=1000, biased=True)
+            prepare_mnist_sim(clients, rounds, subset_size, bias_ratio)
         case DatasetEnum.CIFAR10:
-            prepare_cifar_10_sim(clients, rounds, subset_size=5000)
+            prepare_cifar_10_sim(clients, rounds, subset_size)
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, rounds=8, clients=16)
+    simulate(DatasetEnum.MNIST, clients=8, rounds=4, subset_size=1000, bias_ratio=0.1)

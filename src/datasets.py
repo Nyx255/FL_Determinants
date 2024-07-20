@@ -118,6 +118,22 @@ def create_loaders_2(train_set, test_set, subset_size: int = None, num_splits: i
     return train_loaders, val_loaders, test_loader
 
 
+def create_loaders_3(train_set, test_set, set_ratio: float, subset_count: int = 1, bias_ratio: float = 0.0):
+
+    train_subsets, val_subsets = create_subsets(train_set, test_set, set_ratio, subset_count, bias_ratio)
+
+    train_sub_loaders = []
+    val_sub_loaders = []
+    # NOTE: There should be an equal number of train, validation subsets
+    for i in range(0, len(train_subsets)):
+        train_sub_loaders.append(DataLoader(train_subsets[i], batch_size=BATCH_SIZE))
+        val_sub_loaders.append(DataLoader(val_subsets[i], batch_size=BATCH_SIZE))
+
+    test_loader = create_loader(test_set)
+
+    return train_sub_loaders, val_sub_loaders, test_loader
+
+
 def create_loader(dataset, start: int = 0, end: int = None):
     if end is None:
         end = len(dataset)
@@ -126,8 +142,7 @@ def create_loader(dataset, start: int = 0, end: int = None):
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
-def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: int = 1,
-                   bias_ratio: float = 0.0, shuffle: bool = False):
+def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: int = 1, bias_ratio: float = 0.0):
     # Guards
     if set_ration < 0.0 or set_ration > 1.0:
         print("Set Ratio cant be bigger then 1.0 or smaller then 0.0! Exiting...")
@@ -139,14 +154,14 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
 
     train_subset_size: int = int(math.floor(len(train_set) * set_ration))
     print("Create train subset Size of: " + str(train_subset_size) + " set of Size: " + str(len(train_set)))
-    if train_subset_size * subset_count > 1:
-        print("Subset count is too big for Dataset with current subset ratio! ")
+    if train_subset_size * subset_count > len(train_set):
+        print("Train subset count is too big for Dataset with current subset ratio! ")
         raise SystemExit
 
     test_subset_size: int = int(math.floor(len(test_set) * set_ration))
     print("Create test subset Size of: " + str(test_subset_size) + " set of Size: " + str(len(test_set)))
-    if test_subset_size * subset_count > 1:
-        print("Subset count is too big for Dataset with current subset ratio! ")
+    if test_subset_size * subset_count > len(test_set):
+        print("Test subset count is too big for Dataset with current subset ratio! ")
         raise SystemExit
     # Guards end
 
@@ -157,7 +172,7 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
     for i in range(0, subset_count):
         # select random class as bias for train and test set
         random_class = random.choice(classes)
-
+        print("Random class bias: " + str(random_class))
         train_subset = create_biased_subset(train_set, train_subset_size, random_class, bias_ratio)
         train_subsets.append(train_subset)
 
@@ -168,6 +183,8 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
 
 
 def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: float = 0.5):
+    if bias_ratio == 0.0:
+        return Subset(set, generate_random_integers(subset_size, 0, int(len(set))))
     # split dataset.targets between matching classes and other classes
     class_indices = [i for i, target in enumerate(set.targets) if target == class_bias]
     other_indices = [i for i, target in enumerate(set.targets) if target != class_bias]
