@@ -119,7 +119,6 @@ def create_loaders_2(train_set, test_set, subset_size: int = None, num_splits: i
 
 
 def create_loaders_3(train_set, test_set, set_ratio: float, subset_count: int = 1, bias_ratio: float = 0.0):
-
     train_subsets, val_subsets = create_subsets(train_set, test_set, set_ratio, subset_count, bias_ratio)
 
     train_sub_loaders = []
@@ -167,19 +166,20 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
 
     classes: list = list(set(train_set.targets))
     train_subsets: list[Subset] = []
-    test_subsets: list[Subset] = []
+    val_subsets: list[Subset] = []
 
     for i in range(0, subset_count):
         # select random class as bias for train and test set
         random_class = random.choice(classes)
         print("Random class bias: " + str(random_class))
-        train_subset = create_biased_subset(train_set, train_subset_size, random_class, bias_ratio)
-        train_subsets.append(train_subset)
+        train_biased_subset, val_biased_subset = create_biased_subset(train_set, train_subset_size, random_class,
+                                                                      bias_ratio)
+        train_subsets.append(train_biased_subset)
 
-        test_subset = create_biased_subset(test_set, test_subset_size, random_class, bias_ratio)
-        test_subsets.append(test_subset)
+        # test_subset = create_biased_subset(test_set, test_subset_size, random_class, 0.0)
+        val_subsets.append(val_biased_subset)
 
-    return train_subsets, test_subsets
+    return train_subsets, val_subsets
 
 
 def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: float = 0.5):
@@ -198,8 +198,13 @@ def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: flo
     num_other_samples = subset_size - num_biased_samples
 
     selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
-    biased_subset = Subset(set, selected_indices)
-    return biased_subset
+
+    # splitting biased subset between train and validation set, using 90% for training and 10% for validation
+    split_size: int = int(len(selected_indices) * 0.9)
+    train_biased_subset = Subset(set, selected_indices[:split_size])
+    val_biased_subset = Subset(set, selected_indices[len(selected_indices) - split_size:])
+
+    return train_biased_subset, val_biased_subset
 
 
 def create_random_loader(dataset, set_size: int, range_start: int = 0, range_end: int = None, seed: int = None):

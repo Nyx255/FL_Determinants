@@ -29,10 +29,11 @@ current_sim_dataset: DatasetEnum = DatasetEnum.MNIST
 
 class FlowerClient(fl.client.NumPyClient):
 
-    def __init__(self, net, train_loader, val_loader):
+    def __init__(self, net, train_loader, val_loader, test_loader):
         self.net = net
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.test_loader = test_loader
 
     def get_parameters(self, config):
 
@@ -62,9 +63,9 @@ class FlowerClient(fl.client.NumPyClient):
 
         match current_sim_dataset:
             case DatasetEnum.MNIST:
-                loss, accuracy = mnist_net.test(net, self.val_loader)
+                loss, accuracy = mnist_net.test(net, self.test_loader)
             case DatasetEnum.CIFAR10:
-                loss, accuracy = cifar10_net.test(net, self.val_loader)
+                loss, accuracy = cifar10_net.test(net, self.test_loader)
 
         return float(loss), len(self.val_loader.dataset), {"accuracy": accuracy}
 
@@ -84,7 +85,7 @@ def client_fn(cid: str):
     val_loader = val_loaders[int(cid)]
 
     # Create a single Flower client representing a single organization
-    return FlowerClient(net, train_loader, val_loader).to_client()
+    return FlowerClient(net, train_loader, val_loader, test_loader).to_client()
 
 
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
@@ -227,4 +228,4 @@ def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: i
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, clients=8, rounds=4, subset_size=1000, bias_ratio=0.1)
+    simulate(DatasetEnum.MNIST, clients=16, rounds=8, subset_size=500, bias_ratio=0.9)
