@@ -24,7 +24,7 @@ class DatasetEnum(Enum):
     CIFAR10 = 1
 
 
-current_sim_dataset: DatasetEnum = DatasetEnum.MNIST
+current_sim_dataset: DatasetEnum
 
 
 class FlowerClient(fl.client.NumPyClient):
@@ -102,7 +102,7 @@ def start_cifar_10_sim(_num_clients: int, _num_rounds: int):
     strategy = FedCustomPacketLoss(
         fraction_drop=client_dropout_rate,
         fraction_fit=1.0,
-        fraction_evaluate=0.5,
+        fraction_evaluate=1,
         min_fit_clients=_num_clients,
         min_evaluate_clients=int(_num_clients / 2),
         min_available_clients=_num_clients,
@@ -136,7 +136,7 @@ def start_mnist_10_sim(_num_clients: int, _num_rounds: int):
     strategy = FedCustomPacketLoss(
         fraction_drop=client_dropout_rate,
         fraction_fit=1.0,
-        fraction_evaluate=0.5,
+        fraction_evaluate=1,
         min_fit_clients=_num_clients,
         min_evaluate_clients=int(_num_clients / 2),
         min_available_clients=_num_clients,
@@ -164,16 +164,20 @@ def start_mnist_10_sim(_num_clients: int, _num_rounds: int):
     )
 
 
-def prepare_cifar_10_sim(num_clients: int, num_rounds: int, subset_size: int,
-                         reverse: bool = False, shuffle: bool = False, biased: bool = False):
+def prepare_cifar_10_sim(num_clients: int, num_rounds: int, set_size: int, bias_ratio: float = 0.0):
     global net
     net = cifar10_net.load_model()
 
     train_set, test_set = datasets.download_cifar_10()
     global train_loaders, val_loaders, test_loader
-    train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
-                                                                      subset_size, num_splits=num_clients,
-                                                                      shuffle=shuffle, biased=biased)
+    train_set, test_set = datasets.download_mnist()
+    global train_loaders, val_loaders, test_loader
+
+    # cifar train set has size of 50.000
+    # cifar test set has size of 10.000
+    set_ratio: float = set_size / 50000
+    train_loaders, val_loaders, test_loader = datasets.create_loaders_3(train_set, test_set,
+                                                                        set_ratio, num_clients, bias_ratio)
     # Start clients, using RAM load distribution. If number of clients is bigger than ram capacity,
     # only load more clients if available
     start_cifar_10_sim(num_clients, num_rounds)
@@ -185,11 +189,7 @@ def prepare_mnist_sim(num_clients: int, num_rounds: int, set_size: int, bias_rat
 
     train_set, test_set = datasets.download_mnist()
     global train_loaders, val_loaders, test_loader
-    """
-    train_loaders, val_loaders, test_loader = datasets.create_loaders(train_set, test_set,
-                                                                      subset_size, num_splits=num_clients,
-                                                                      shuffle=shuffle, biased=biased)
-    """
+
     # mnist train set has size of 60.000
     # mnist test set has size of 10.000
     set_ratio: float = set_size / 60000
@@ -228,4 +228,4 @@ def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: i
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, clients=16, rounds=8, subset_size=500, bias_ratio=0.9)
+    simulate(DatasetEnum.MNIST, clients=16, rounds=8, subset_size=1000, bias_ratio=0.8)
