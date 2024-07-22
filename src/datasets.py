@@ -182,9 +182,7 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
     return train_subsets, val_subsets
 
 
-def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: float = 0.5):
-    if bias_ratio == 0.0:
-        return Subset(set, generate_random_integers(subset_size, 0, int(len(set))))
+def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: float = 0.0):
     # split dataset.targets between matching classes and other classes
     class_indices = [i for i, target in enumerate(set.targets) if target == class_bias]
     other_indices = [i for i, target in enumerate(set.targets) if target != class_bias]
@@ -196,8 +194,11 @@ def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: flo
     # choose amount of biased classes and fill rest with random classes
     num_biased_samples = int(subset_size * bias_ratio)
     num_other_samples = subset_size - num_biased_samples
-
-    selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
+    
+    if bias_ratio == 0.0:
+        selected_indices = generate_random_integers(subset_size, 0, int(len(set)))
+    else:
+        selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
 
     # splitting biased subset between train and validation set, using 90% for training and 10% for validation
     split_size: int = int(len(selected_indices) * 0.9)

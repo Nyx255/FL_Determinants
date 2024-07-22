@@ -170,8 +170,6 @@ def prepare_cifar_10_sim(num_clients: int, num_rounds: int, set_size: int, bias_
 
     train_set, test_set = datasets.download_cifar_10()
     global train_loaders, val_loaders, test_loader
-    train_set, test_set = datasets.download_mnist()
-    global train_loaders, val_loaders, test_loader
 
     # cifar train set has size of 50.000
     # cifar test set has size of 10.000
@@ -224,8 +222,8 @@ def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: i
         case DatasetEnum.MNIST:
             prepare_mnist_sim(clients, rounds, subset_size, bias_ratio)
         case DatasetEnum.CIFAR10:
-            prepare_cifar_10_sim(clients, rounds, subset_size)
+            prepare_cifar_10_sim(clients, rounds, subset_size, bias_ratio)
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.MNIST, clients=16, rounds=8, subset_size=1000, bias_ratio=0.8)
+    simulate(DatasetEnum.CIFAR10, clients=8, rounds=8, subset_size=1000, bias_ratio=0)
