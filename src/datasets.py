@@ -152,33 +152,24 @@ def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: i
         raise SystemExit
 
     train_subset_size: int = int(math.floor(len(train_set) * set_ration))
-    print("Create train subset Size of: " + str(train_subset_size) + " set of Size: " + str(len(train_set)))
-    if train_subset_size * subset_count > len(train_set):
-        print("Train subset count is too big for Dataset with current subset ratio! ")
-        raise SystemExit
-
-    test_subset_size: int = int(math.floor(len(test_set) * set_ration))
-    print("Create test subset Size of: " + str(test_subset_size) + " set of Size: " + str(len(test_set)))
-    if test_subset_size * subset_count > len(test_set):
-        print("Test subset count is too big for Dataset with current subset ratio! ")
-        raise SystemExit
-    # Guards end
 
     classes: list = list(set(train_set.targets))
     train_subsets: list[Subset] = []
     val_subsets: list[Subset] = []
-
+    selected_biases = []
     for i in range(0, subset_count):
         # select random class as bias for train and test set
         random_class = random.choice(classes)
-        print("Random class bias: " + str(random_class))
+        selected_biases.append(random_class)
+
         train_biased_subset, val_biased_subset = create_biased_subset(train_set, train_subset_size, random_class,
                                                                       bias_ratio)
         train_subsets.append(train_biased_subset)
 
         # test_subset = create_biased_subset(test_set, test_subset_size, random_class, 0.0)
         val_subsets.append(val_biased_subset)
-
+    if bias_ratio > 0:
+        print("Random class bias: " + str(selected_biases))
     return train_subsets, val_subsets
 
 
@@ -194,7 +185,7 @@ def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: flo
     # choose amount of biased classes and fill rest with random classes
     num_biased_samples = int(subset_size * bias_ratio)
     num_other_samples = subset_size - num_biased_samples
-    
+
     if bias_ratio == 0.0:
         selected_indices = generate_random_integers(subset_size, 0, int(len(set)))
     else:

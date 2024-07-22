@@ -226,4 +226,4 @@ def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: i
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.CIFAR10, clients=8, rounds=8, subset_size=1000, bias_ratio=0)
+    simulate(DatasetEnum.CIFAR10, clients=16, rounds=8, subset_size=5000, bias_ratio=0.5)
