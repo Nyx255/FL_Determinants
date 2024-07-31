@@ -51,7 +51,7 @@ class FlowerClient(fl.client.NumPyClient):
             case DatasetEnum.MNIST:
                 mnist_net.train(net, self.train_loader, epochs=5)
             case DatasetEnum.CIFAR10:
-                cifar10_net.train(net, self.train_loader, epochs=5)
+                cifar10_net.train(net, self.train_loader, epochs=50)
 
         return self.get_parameters({}), len(self.train_loader.dataset), {}
 
@@ -226,4 +226,4 @@ def simulate(sim_dataset: DatasetEnum, clients: int, rounds: int, subset_size: i
 
 
 if __name__ == '__main__':
-    simulate(DatasetEnum.CIFAR10, clients=16, rounds=8, subset_size=5000, bias_ratio=0.5)
+    simulate(DatasetEnum.MNIST, clients=32, rounds=16, subset_size=500, bias_ratio=0.5)

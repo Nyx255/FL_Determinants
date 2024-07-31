@@ -44,82 +44,8 @@ def download_cifar_10() -> Tuple[Dataset, Dataset]:
     return trainset, testset
 
 
-def create_loaders(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False,
-                   biased: bool = False):
-    train_loaders = []
-    val_loaders = []
-    if subset_size is None:
-        # splitting train/test-sets into number of clients
-        train_subset_size = int(len(train_set) / num_splits)
-        val_subset_size = int(len(test_set) / num_splits)
-    else:
-        # splitting train/test-sets into number of clients with even sized data
-        train_subset_size = subset_size
-        val_subset_size = int(subset_size * len(test_set) / len(train_set))
-
-    for i in range(num_splits):
-        if biased:
-            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=0.5, seed=SEED)
-        elif shuffle:
-            train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
-                                                       int((i + 1) * train_subset_size), SEED)
-        else:
-            train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
-        train_loaders.append(train_subset_loader)
-
-        if biased:
-            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=SEED)
-        elif shuffle:
-            val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
-                                                     int((i + 1) * val_subset_size), SEED)
-        else:
-            val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
-
-        val_loaders.append(val_subset_loader)
-
-    test_loader = create_loader(test_set)
-    return train_loaders, val_loaders, test_loader
-
-
-def create_loaders_2(train_set, test_set, subset_size: int = None, num_splits: int = 1, shuffle: bool = False,
-                     biased: bool = False):
-    train_loaders = []
-    val_loaders = []
-    if subset_size is None:
-        # splitting train/test-sets into number of clients
-        train_subset_size = int(len(train_set) / num_splits)
-        val_subset_size = int(len(test_set) / num_splits)
-    else:
-        # splitting train/test-sets into number of clients with even sized data
-        train_subset_size = subset_size
-        val_subset_size = int(subset_size * len(test_set) / len(train_set))
-
-    for i in range(num_splits):
-        if biased:
-            train_subset_loader = create_biased_loader(train_set, train_subset_size, bias_ratio=0.5, seed=SEED)
-        elif shuffle:
-            train_subset_loader = create_random_loader(train_set, train_subset_size, int(i * train_subset_size),
-                                                       int((i + 1) * train_subset_size), SEED)
-        else:
-            train_subset_loader = create_loader(train_set, int(i * train_subset_size), int((i + 1) * train_subset_size))
-        train_loaders.append(train_subset_loader)
-
-        if biased:
-            val_subset_loader = create_biased_loader(train_set, val_subset_size, seed=SEED)
-        elif shuffle:
-            val_subset_loader = create_random_loader(test_set, val_subset_size, int(i * val_subset_size),
-                                                     int((i + 1) * val_subset_size), SEED)
-        else:
-            val_subset_loader = create_loader(test_set, int(i * val_subset_size), int((i + 1) * val_subset_size))
-
-        val_loaders.append(val_subset_loader)
-
-    test_loader = create_loader(test_set)
-    return train_loaders, val_loaders, test_loader
-
-
 def create_loaders_3(train_set, test_set, set_ratio: float, subset_count: int = 1, bias_ratio: float = 0.0):
-    train_subsets, val_subsets = create_subsets(train_set, test_set, set_ratio, subset_count, bias_ratio)
+    train_subsets, val_subsets = create_subsets(train_set, set_ratio, subset_count, bias_ratio)
 
     train_sub_loaders = []
     val_sub_loaders = []
@@ -141,7 +67,7 @@ def create_loader(dataset, start: int = 0, end: int = None):
     return DataLoader(sub_set, batch_size=BATCH_SIZE)
 
 
-def create_subsets(train_set, test_set, set_ration: float = 0.1, subset_count: int = 1, bias_ratio: float = 0.0):
+def create_subsets(train_set, set_ration: float = 0.1, subset_count: int = 1, bias_ratio: float = 0.0):
     # Guards
     if set_ration < 0.0 or set_ration > 1.0:
         print("Set Ratio cant be bigger then 1.0 or smaller then 0.0! Exiting...")
@@ -190,6 +116,8 @@ def create_biased_subset(set, subset_size: int, class_bias: int, bias_ratio: flo
         selected_indices = generate_random_integers(subset_size, 0, int(len(set)))
     else:
         selected_indices = class_indices[:num_biased_samples] + other_indices[:num_other_samples]
+
+    random.shuffle(selected_indices)
 
     # splitting biased subset between train and validation set, using 90% for training and 10% for validation
     split_size: int = int(len(selected_indices) * 0.9)
